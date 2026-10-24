@@ -29,9 +29,10 @@ are not watching a video.
 
 ## What it does
 
-- **Plays the video formats built into macOS**: MP4, MOV, M4V, AVI, MPEG and
-  TS, with H.264, HEVC, ProRes and AV1 (M3 and later) video and AAC, AC-3, E-AC-3, MP3, FLAC
-  and ALAC audio. HDR and Dolby Vision play in HDR on HDR displays.
+- **Plays the video formats built into macOS**: MP4, MOV, M4V, AVI, MPEG
+  (MPEG-1 and MPEG-2, .m2v included), TS, 3GP, 3G2 and DV, with H.264, HEVC,
+  ProRes and AV1 (M3 and later) video and AAC, AC-3, E-AC-3, MP3, FLAC and
+  ALAC audio. HDR and Dolby Vision play in HDR on HDR displays.
 - **One window per video**, opened at the video's own size (shrunk to fit the
   screen) and keeping its shape when you resize it. Phone videos stand upright.
 - **The title bar disappears into the picture**: the close, minimize and zoom
