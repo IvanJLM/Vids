@@ -6,8 +6,10 @@
 # videos paused and starting it needs an automation permission prompt.
 # Usage: ./scripts/benchmark.sh /path/to/video.mp4 [--compare]
 set -euo pipefail
-cd "$(dirname "$0")/.."
 VIDEO="${1:?Usage: $0 /path/to/video [--compare]}"
+[[ -f "$VIDEO" ]] || { echo "No such video: $VIDEO"; exit 1; }
+VIDEO="${VIDEO:A}"  # absolute, since the script changes directory
+cd "$(dirname "$0")/.."
 WARMUP=8
 SAMPLES=10
 
@@ -15,14 +17,13 @@ xcodegen generate --quiet
 xcodebuild -project Vids.xcodeproj -scheme Vids -configuration Release \
   -derivedDataPath build/Bench -quiet build
 VIDS="$PWD/build/Bench/Build/Products/Release/Vids.app"
-# The benchmark copy must not ask to become the default player.
-defaults write com.ivanjlm.vids AskedToBecomeDefault -bool true
 
-measure() {  # name, app path, process name
+measure() {  # name, app path, process name, extra launch arguments
   local name="$1" app="$2" process="$3"
+  shift 3
   osascript -e "quit app \"$process\"" 2>/dev/null || true
   while pgrep -xq "$process"; do sleep 0.2; done
-  open -a "$app" "$VIDEO"
+  open -a "$app" "$VIDEO" --args "$@"
   sleep $WARMUP
   local pid=$(pgrep -xn "$process")
   local stats=$(top -l $((SAMPLES + 1)) -s 1 -pid $pid -stats cpu,power,idlew,th | tr -d '+-' \
@@ -41,7 +42,9 @@ measure() {  # name, app path, process name
 echo "Playing $(basename "$VIDEO"), averaged over $SAMPLES s after $WARMUP s:"
 echo "| App    |   Memory |    CPU | Energy | Wake-ups | Threads |  Size |"
 echo "|--------|----------|--------|--------|----------|---------|-------|"
-measure "Vids" "$VIDS" Vids
+# The benchmark copy must not offer to become the default player. Given as a
+# launch argument, the setting holds for this run only and is never saved.
+measure "Vids" "$VIDS" Vids -AskedToBecomeDefault YES
 if [[ "${2:-}" == "--compare" ]]; then
   [[ -d /Applications/IINA.app ]] && measure "IINA" /Applications/IINA.app IINA
 fi

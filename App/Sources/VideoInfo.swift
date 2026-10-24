@@ -71,7 +71,7 @@ enum PlaybackError: LocalizedError {
         let title = "Vids can't play “\(url.lastPathComponent)”."
         let ext = url.pathExtension.lowercased()
         if foreignExtensions.contains(ext) {
-            return (title, "It is a \(ext.uppercased()) file. Vids plays the video formats built into macOS: MP4, MOV, M4V, AVI, MPEG and TS.")
+            return (title, "It is a \(ext.uppercased()) file. Vids plays the video formats built into macOS: MP4, MOV, M4V, AVI, MPEG, TS, 3GP and DV.")
         }
         return (title, error.localizedDescription)
     }
