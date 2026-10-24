@@ -2,8 +2,12 @@ import AppKit
 
 /// Hides the title bar into the video, as IINA does: the close, minimize and
 /// zoom buttons appear while the mouse moves over the window and fade out
-/// two seconds after it stops. Nothing runs while the mouse is still: the
-/// timer exists only while the buttons are visible.
+/// two seconds after it stops. The playback controls follow the same rhythm:
+/// they exist while the mouse moves or the video is paused, and are taken
+/// away while the video plays untouched, because AVKit keeps redrawing its
+/// hidden time slider every frame (two thirds of Vids's CPU with 4K video).
+/// Nothing runs while the mouse is still: the timer exists only while the
+/// mouse has just moved.
 @MainActor
 final class WindowChrome: NSResponder {
     static let idleDelay: TimeInterval = 2
@@ -12,12 +16,14 @@ final class WindowChrome: NSResponder {
 
     private weak var window: NSWindow?
     private let shade = TopShade()
-    private var hideTimer: Timer?
+    private(set) var hideTimer: Timer?
     private(set) var isShown = true
     /// True in full screen, where macOS manages the title bar itself.
     private var isSuspended = false
-    /// Asked before hiding the pointer along with the buttons.
+    /// Asked before hiding the pointer and the playback controls.
     var isPlaying: () -> Bool = { false }
+    /// Adds (true) or removes (false) the playback controls.
+    var showControls: (Bool) -> Void = { _ in }
 
     init(window: NSWindow) {
         self.window = window
@@ -35,10 +41,10 @@ final class WindowChrome: NSResponder {
 
     private var titlebar: NSView? { window?.standardWindowButton(.closeButton)?.superview }
 
-    /// Shows the buttons and starts the countdown to hide them.
+    /// Shows the buttons and the controls, and starts the countdown to hide them.
     func show() {
-        guard !isSuspended else { return }
-        if !isShown {
+        showControls(true)
+        if !isShown && !isSuspended {
             isShown = true
             titlebar?.isHidden = false
             NSAnimationContext.runAnimationGroup { context in
@@ -53,6 +59,7 @@ final class WindowChrome: NSResponder {
     func hide() {
         hideTimer?.invalidate()
         hideTimer = nil
+        if isPlaying() { showControls(false) }
         guard isShown, !isSuspended else { return }
         isShown = false
         NSAnimationContext.runAnimationGroup({ context in
@@ -67,10 +74,17 @@ final class WindowChrome: NSResponder {
         })
     }
 
+    /// Paused: the controls come back. Playing with the mouse still: they go.
+    func playbackChanged() {
+        if !isPlaying() {
+            showControls(true)
+        } else if hideTimer == nil {
+            showControls(false)
+        }
+    }
+
     /// Full screen: macOS shows the title bar when the pointer reaches the top.
     func suspend() {
-        hideTimer?.invalidate()
-        hideTimer = nil
         isSuspended = true
         isShown = true
         titlebar?.isHidden = false
@@ -84,14 +98,23 @@ final class WindowChrome: NSResponder {
         show()
     }
 
+    /// The window is closing: no timer outlives it.
+    func stop() {
+        hideTimer?.invalidate()
+        hideTimer = nil
+    }
+
     private func restartTimer() {
         let fire = Date().addingTimeInterval(Self.idleDelay)
         if let timer = hideTimer, timer.isValid {
             timer.fireDate = fire
         } else {
-            hideTimer = Timer.scheduledTimer(withTimeInterval: Self.idleDelay, repeats: false) { [weak self] _ in
+            let timer = Timer(timeInterval: Self.idleDelay, repeats: false) { [weak self] _ in
                 MainActor.assumeIsolated { self?.hideIfIdle() }
             }
+            timer.tolerance = 0.2  // lets macOS group the wake-up with others
+            RunLoop.main.add(timer, forMode: .common)
+            hideTimer = timer
         }
     }
 
@@ -100,8 +123,10 @@ final class WindowChrome: NSResponder {
         guard let window, let content = window.contentView else { return }
         let point = content.convert(window.mouseLocationOutsideOfEventStream, from: nil)
         let inside = content.bounds.contains(point)
-        if inside && point.y > content.bounds.height - Self.titleBand {
-            restartTimer()  // the pointer rests on the buttons
+        if inside && point.y > content.bounds.height - Self.titleBand && !isSuspended {
+            // The pointer rests on the buttons: they stay until it moves again,
+            // without waking up every two seconds to check.
+            if isPlaying() { showControls(false) }
             return
         }
         hide()
