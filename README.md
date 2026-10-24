@@ -24,6 +24,11 @@ Same 4K HEVC video playing, measured on an M4 Pro Mac with macOS 26
 
 Other videos with Vids: 37 MB for 1080p HEVC, 105 MB for 4K ProRes HQ.
 
+Vids 1.1 takes the playback controls away while nobody is looking at them,
+because AVKit keeps redrawing its time slider even when it is hidden. On the
+same Mac, with a 4K HEVC test video with AAC sound, that took Vids from 13.0 %
+to 3.5 % CPU and from 33 to 23 threads; 1080p H.264 went from 14.8 % to 3.7 %.
+
 Vids quits when its last window closes, so it uses no memory at all when you
 are not watching a video.
 
@@ -39,7 +44,8 @@ are not watching a video.
   buttons show while the mouse moves and fade out two seconds after it stops,
   together with the pointer.
 - **QuickTime's own controls**: play, scrub, volume, audio and subtitle tracks
-  and full screen, shown on hover.
+  and full screen, shown on hover. While the video plays untouched they are
+  taken away altogether, so they cost nothing.
 - **Double-click** the picture for full screen; drag it to move the window.
 - Drop a video on a window to play it there. The volume is remembered.
 
