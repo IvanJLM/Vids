@@ -1,0 +1,21 @@
+# Changelog
+
+## 1.0.0 — 2026-10-24
+
+First release. A native Swift/AppKit video player written from scratch, on
+AVFoundation and AVKit, with no third-party code.
+
+- Plays MP4, MOV, M4V, AVI, MPEG, TS and 3GP with the Mac's hardware decoders
+  (H.264, HEVC, ProRes, AV1), HDR included.
+- One window per video at its own size, keeping its shape; phone videos
+  upright, anamorphic videos unstretched.
+- Title bar hidden in the picture: the window buttons fade in on mouse move
+  and out two seconds later, with the pointer.
+- QuickTime's floating controls, with audio and subtitle track menus also in
+  the Playback menu.
+- Space, arrows (5 s skips and volume), M, F, ⌘0/⌘1/⌘2, double-click for
+  full screen, drag to move, drop to replace. Volume is remembered.
+- Clear message for files macOS can't play (MKV, WebM…); they are never
+  claimed as Vids files.
+- Quits when the last window closes. No preferences.
+- Offers once to become the default player, one format at a time.
