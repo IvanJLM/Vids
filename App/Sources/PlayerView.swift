@@ -22,6 +22,13 @@ final class PlayerView: AVPlayerView {
 
     override var acceptsFirstResponder: Bool { true }
 
+    /// Adds or removes the floating controls. AVKit rebuilds them on every
+    /// change of style, so the style is only set when it changes.
+    func showControls(_ show: Bool) {
+        let style: AVPlayerViewControlsStyle = show ? .floating : .none
+        if controlsStyle != style { controlsStyle = style }
+    }
+
     override func keyDown(with event: NSEvent) {
         let key = event.charactersIgnoringModifiers?.lowercased()
         let plain = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.capsLock, .numericPad, .function]).isEmpty

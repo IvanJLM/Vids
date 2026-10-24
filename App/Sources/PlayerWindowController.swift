@@ -26,6 +26,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSMenu
     private var audioTracks: AVMediaSelectionGroup?
     private var subtitles: AVMediaSelectionGroup?
     private var statusObservation: NSKeyValueObservation?
+    private var playbackObservation: NSKeyValueObservation?
     private var loadTask: Task<Void, Never>?
     private weak var cascadeSource: NSWindow?
 
@@ -51,10 +52,14 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSMenu
         content.onDrop = { [weak self] url in self?.open(url) }
         chrome = WindowChrome(window: window)
         chrome.isPlaying = { [weak self] in self?.player.timeControlStatus == .playing }
+        chrome.showControls = { [weak self] show in self?.playerView.showControls(show) }
         cascadeSource = other
         let defaults = UserDefaults.standard
         player.volume = defaults.object(forKey: Self.volumeKey) == nil ? 1 : defaults.float(forKey: Self.volumeKey)
         playerView.player = player
+        playbackObservation = player.observe(\.timeControlStatus) { [weak self] _, _ in
+            DispatchQueue.main.async { MainActor.assumeIsolated { self?.chrome.playbackChanged() } }
+        }
     }
 
     @available(*, unavailable)
@@ -101,10 +106,14 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSMenu
         window.contentAspectRatio = videoSize
         window.contentMinSize = WindowSizing.minimum(for: videoSize)
         if firstVideo {
-            let visible = (cascadeSource?.screen ?? NSScreen.main ?? NSScreen.screens[0]).visibleFrame
+            // Videos opened together load in any order: when the window this one
+            // was meant to follow is not on screen yet, follow the front video.
+            let source = cascadeSource.flatMap { $0.isVisible ? $0 : nil }
+                ?? NSApp.orderedWindows.first { $0 !== window && $0 is PlayerWindow && $0.isVisible }
+            let visible = (source?.screen ?? NSScreen.main ?? NSScreen.screens[0]).visibleFrame
             let size = WindowSizing.fit(videoSize, in: CGSize(width: visible.width * 0.9, height: visible.height * 0.9))
             window.setContentSize(size)
-            if let source = cascadeSource, source.isVisible {
+            if let source {
                 window.setFrameTopLeftPoint(NSPoint(x: source.frame.minX + 24, y: source.frame.maxY - 24))
                 window.setFrame(window.constrainFrameRect(window.frame, to: source.screen), display: false)
             } else {
@@ -141,6 +150,8 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSMenu
     func windowWillClose(_ notification: Notification) {
         loadTask?.cancel()
         statusObservation = nil
+        playbackObservation = nil
+        chrome.stop()
         UserDefaults.standard.set(player.volume, forKey: Self.volumeKey)
         player.pause()
         player.replaceCurrentItem(with: nil)
