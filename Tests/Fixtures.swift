@@ -1,10 +1,20 @@
 import AVFoundation
 import CoreVideo
 import XCTest
+@testable import Vids
 
 /// Writes small test videos with AVAssetWriter, so the repository needs no
 /// binary fixtures.
 enum Fixtures {
+    /// Gives the player windows empty settings of their own, so the tests
+    /// neither read nor change yours.
+    @MainActor
+    static func emptySettings() {
+        let suite = "com.ivanjlm.vids.tests"
+        UserDefaults.standard.removePersistentDomain(forName: suite)
+        PlayerWindowController.defaults = UserDefaults(suiteName: suite)!
+    }
+
     static func folder(_ test: XCTestCase) throws -> URL {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("VidsTests-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

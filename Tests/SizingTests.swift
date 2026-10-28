@@ -22,6 +22,13 @@ final class SizingTests: XCTestCase {
                        CGSize(width: 1500, height: 844))
     }
 
+    func testFillGrowsOrShrinksToTheBounds() {
+        XCTAssertEqual(WindowSizing.fill(CGSize(width: 640, height: 360), in: CGSize(width: 1280, height: 900)),
+                       CGSize(width: 1280, height: 720))
+        XCTAssertEqual(WindowSizing.fill(CGSize(width: 1080, height: 1920), in: CGSize(width: 1280, height: 720)),
+                       CGSize(width: 405, height: 720))
+    }
+
     func testMinimumKeepsTheShortSide() {
         XCTAssertEqual(WindowSizing.minimum(for: CGSize(width: 1920, height: 1080)), CGSize(width: 320, height: 180))
         XCTAssertEqual(WindowSizing.minimum(for: CGSize(width: 1080, height: 1920)), CGSize(width: 180, height: 320))

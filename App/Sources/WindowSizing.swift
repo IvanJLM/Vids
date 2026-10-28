@@ -11,6 +11,14 @@ enum WindowSizing {
         return CGSize(width: (wanted.width * shrink).rounded(), height: (wanted.height * shrink).rounded())
     }
 
+    /// The largest size with `size`'s aspect ratio that fits in `bounds`,
+    /// grown or shrunk.
+    static func fill(_ size: CGSize, in bounds: CGSize) -> CGSize {
+        guard size.width > 0, size.height > 0 else { return bounds }
+        let scale = min(bounds.width / size.width, bounds.height / size.height)
+        return CGSize(width: (size.width * scale).rounded(), height: (size.height * scale).rounded())
+    }
+
     /// The smallest content size: the short side at `side` points.
     static func minimum(for size: CGSize, side: CGFloat = 180) -> CGSize {
         guard size.width > 0, size.height > 0 else { return CGSize(width: side, height: side) }
