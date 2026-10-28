@@ -38,8 +38,11 @@ are not watching a video.
   (MPEG-1 and MPEG-2, .m2v included), TS, 3GP, 3G2 and DV, with H.264, HEVC,
   ProRes and AV1 (M3 and later) video and AAC, AC-3, E-AC-3, MP3, FLAC and
   ALAC audio. HDR and Dolby Vision play in HDR on HDR displays.
-- **One window per video**, opened at the video's own size (shrunk to fit the
-  screen) and keeping its shape when you resize it. Phone videos stand upright.
+- **One window per video**, keeping its shape when you resize it. Phone
+  videos stand upright.
+- **Opens where you left it**: the next video opens in the place and at the
+  size of the last window you moved, resized or closed, with its own shape.
+  The very first one opens at the video's own size, shrunk to fit the screen.
 - **The title bar disappears into the picture**: the close, minimize and zoom
   buttons show while the mouse moves and fade out two seconds after it stops,
   together with the pointer.

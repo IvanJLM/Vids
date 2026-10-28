@@ -6,6 +6,11 @@ import XCTest
 
 @MainActor
 final class PlayerTests: XCTestCase {
+    override func setUp() async throws {
+        try await super.setUp()
+        Fixtures.emptySettings()
+    }
+
     private func openWindow(_ url: URL) async -> (PlayerWindowController, Error?) {
         let controller = PlayerWindowController(cascadeFrom: nil)
         var failure: Error?

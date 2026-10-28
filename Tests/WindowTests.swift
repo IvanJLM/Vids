@@ -7,6 +7,11 @@ import XCTest
 /// behind when it closes, and windows opened together side by side.
 @MainActor
 final class WindowTests: XCTestCase {
+    override func setUp() async throws {
+        try await super.setUp()
+        Fixtures.emptySettings()
+    }
+
     private func openWindow(_ url: URL, cascadeFrom other: NSWindow? = nil) async -> PlayerWindowController {
         let controller = PlayerWindowController(cascadeFrom: other)
         let done = expectation(description: "loaded")
@@ -113,6 +118,45 @@ final class WindowTests: XCTestCase {
         await fulfillment(of: loaded, timeout: 10)
         let one = try XCTUnwrap(first.window?.frame), two = try XCTUnwrap(second.window?.frame)
         XCTAssertNotEqual(one.origin, two.origin)
+    }
+
+    func testNextVideoOpensWhereTheLastWindowWas() async throws {
+        let folder = try Fixtures.folder(self)
+        let wide = try await Fixtures.video(in: folder, name: "wide.mp4", width: 320, height: 180)
+        let tall = try await Fixtures.video(in: folder, name: "tall.mp4", width: 180, height: 320)
+
+        let first = await openWindow(wide)
+        let window = try XCTUnwrap(first.window)
+        let visible = try XCTUnwrap(window.screen).visibleFrame
+        let placed = window.frameRect(forContentRect: NSRect(x: visible.minX + 40, y: visible.minY + 40, width: 400, height: 225))
+        window.setFrame(placed, display: false)
+        first.close()
+
+        let again = await openWindow(wide)
+        XCTAssertEqual(again.window?.frame, placed, "same video: same place, same size")
+        again.close()
+
+        let other = await openWindow(tall)
+        defer { other.close() }
+        let frame = try XCTUnwrap(other.window?.frame)
+        let content = try XCTUnwrap(other.window?.contentView?.frame.size)
+        XCTAssertEqual(content.width / content.height, 180.0 / 320.0, accuracy: 0.01, "another video keeps its own shape")
+        XCTAssertEqual(content.height, 225, accuracy: 1, "within the last window's size")
+        XCTAssertEqual(frame.midX, placed.midX, accuracy: 1, "where the last window was")
+        XCTAssertEqual(frame.midY, placed.midY, accuracy: 1)
+    }
+
+    func testFullScreenIsNotRemembered() async throws {
+        let url = try await Fixtures.video(in: try Fixtures.folder(self))
+        let controller = await openWindow(url)
+        defer { controller.close() }
+        let window = try XCTUnwrap(controller.window)
+        let windowed = window.frame
+        controller.windowWillEnterFullScreen(Notification(name: NSWindow.willEnterFullScreenNotification, object: window))
+        window.setFrame(window.screen?.frame ?? .zero, display: false)
+        XCTAssertEqual(PlayerWindowController.defaults.string(forKey: PlayerWindowController.frameKey),
+                       NSStringFromRect(windowed), "the window's size before full screen is the one to come back to")
+        controller.windowDidExitFullScreen(Notification(name: NSWindow.didExitFullScreenNotification, object: window))
     }
 
     func testShortcutsAreMenuKeysThatThePictureLeavesAlone() async throws {

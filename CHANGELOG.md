@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0 — 2026-10-28
+
+- Videos open where you left the last window, at its size: Vids remembers
+  the place and size of the last window you moved, resized or closed (full
+  screen aside). A video of another shape fits that size keeping its own.
+- The tests use settings of their own and no longer change your volume.
+
 ## 1.1.0 — 2026-10-24
 
 - Lighter playback: the floating controls are taken away while a video plays

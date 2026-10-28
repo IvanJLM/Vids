@@ -8,6 +8,10 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSMenu
     static let skipSeconds: Double = 5
     static let volumeStep: Float = 0.1
     private static let volumeKey = "Volume"
+    static let frameKey = "WindowFrame"
+    /// Where the volume and the last window frame are kept; the tests use
+    /// their own, so they never touch your settings.
+    static var defaults = UserDefaults.standard
 
     var onClose: ((PlayerWindowController) -> Void)?
     /// Called when a video can't be played; the window is not shown.
@@ -29,6 +33,8 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSMenu
     private var playbackObservation: NSKeyValueObservation?
     private var loadTask: Task<Void, Never>?
     private weak var cascadeSource: NSWindow?
+    /// From the start of the full screen animation to the end of the way back.
+    private var inFullScreen = false
 
     init(cascadeFrom other: NSWindow?) {
         let window = PlayerWindow(contentRect: NSRect(x: 0, y: 0, width: 640, height: 360),
@@ -54,7 +60,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSMenu
         chrome.isPlaying = { [weak self] in self?.player.timeControlStatus == .playing }
         chrome.showControls = { [weak self] show in self?.playerView.showControls(show) }
         cascadeSource = other
-        let defaults = UserDefaults.standard
+        let defaults = Self.defaults
         player.volume = defaults.object(forKey: Self.volumeKey) == nil ? 1 : defaults.float(forKey: Self.volumeKey)
         playerView.player = player
         playbackObservation = player.observe(\.timeControlStatus) { [weak self] _, _ in
@@ -110,12 +116,27 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSMenu
             // was meant to follow is not on screen yet, follow the front video.
             let source = cascadeSource.flatMap { $0.isVisible ? $0 : nil }
                 ?? NSApp.orderedWindows.first { $0 !== window && $0 is PlayerWindow && $0.isVisible }
-            let visible = (source?.screen ?? NSScreen.main ?? NSScreen.screens[0]).visibleFrame
-            let size = WindowSizing.fit(videoSize, in: CGSize(width: visible.width * 0.9, height: visible.height * 0.9))
+            // The last window's place and size, if it is still on a screen.
+            let saved = Self.defaults.string(forKey: Self.frameKey).map(NSRectFromString)
+            let savedScreen = saved.flatMap { frame in NSScreen.screens.first { $0.visibleFrame.intersects(frame) } }
+            let screen = source?.screen ?? savedScreen ?? NSScreen.main ?? NSScreen.screens[0]
+            let visible = screen.visibleFrame
+            let size: CGSize
+            if let saved, savedScreen != nil {
+                // That size, with this video's shape.
+                let room = window.contentRect(forFrameRect: saved).size
+                size = WindowSizing.fill(videoSize, in: CGSize(width: min(room.width, visible.width),
+                                                               height: min(room.height, visible.height)))
+            } else {
+                size = WindowSizing.fit(videoSize, in: CGSize(width: visible.width * 0.9, height: visible.height * 0.9))
+            }
             window.setContentSize(size)
             if let source {
                 window.setFrameTopLeftPoint(NSPoint(x: source.frame.minX + 24, y: source.frame.maxY - 24))
                 window.setFrame(window.constrainFrameRect(window.frame, to: source.screen), display: false)
+            } else if let saved, savedScreen != nil {
+                let frame = WindowSizing.centered(window.frame.size, on: saved)
+                window.setFrame(window.constrainFrameRect(frame, to: screen), display: false)
             } else {
                 window.center()
             }
@@ -148,18 +169,44 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSMenu
     // MARK: Window
 
     func windowWillClose(_ notification: Notification) {
+        rememberFrame()
         loadTask?.cancel()
         statusObservation = nil
         playbackObservation = nil
         chrome.stop()
-        UserDefaults.standard.set(player.volume, forKey: Self.volumeKey)
+        Self.defaults.set(player.volume, forKey: Self.volumeKey)
         player.pause()
         player.replaceCurrentItem(with: nil)
         onClose?(self)
     }
 
-    func windowWillEnterFullScreen(_ notification: Notification) { chrome.suspend() }
-    func windowDidExitFullScreen(_ notification: Notification) { chrome.resume() }
+    func windowWillEnterFullScreen(_ notification: Notification) {
+        rememberFrame()
+        inFullScreen = true
+        chrome.suspend()
+    }
+
+    func windowDidFailToEnterFullScreen(_ window: NSWindow) {
+        inFullScreen = false
+        chrome.resume()
+    }
+
+    func windowDidExitFullScreen(_ notification: Notification) {
+        inFullScreen = false
+        chrome.resume()
+    }
+
+    func windowDidMove(_ notification: Notification) { rememberFrame() }
+    func windowDidResize(_ notification: Notification) { rememberFrame() }
+
+    /// Keeps the window's place and size, so the next video opens there.
+    /// Only frames you can see count: not the window being placed before it
+    /// shows, nor full screen.
+    private func rememberFrame() {
+        guard let window, window.isVisible, !window.isMiniaturized, !inFullScreen,
+              !window.styleMask.contains(.fullScreen) else { return }
+        Self.defaults.set(NSStringFromRect(window.frame), forKey: Self.frameKey)
+    }
 
     /// Zoom (the green button with ⌥, or a double-click on the title bar):
     /// the largest size that fits the screen with the video's shape.
@@ -207,7 +254,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSMenu
     private func setVolume(_ volume: Float) {
         player.isMuted = false
         player.volume = (min(1, max(0, volume)) * 10).rounded() / 10
-        UserDefaults.standard.set(player.volume, forKey: Self.volumeKey)
+        Self.defaults.set(player.volume, forKey: Self.volumeKey)
     }
 
     @objc func toggleMute(_ sender: Any?) { player.isMuted.toggle() }
