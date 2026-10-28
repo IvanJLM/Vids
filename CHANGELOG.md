@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.0 — 2026-10-28
 
 - Videos open where you left the last window, at its size: Vids remembers
   the place and size of the last window you moved, resized or closed (full
